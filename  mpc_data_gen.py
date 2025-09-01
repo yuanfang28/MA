@@ -148,7 +148,7 @@ class NMPC:
 def gen_static_obstacles(M=6, x_min=8.0, x_max=40.0):
     obs = []
     for _ in range(M):
-        xi = np.random.uniform(x_min, x_max)
+        xi = np.random.uniform(x_min, x_max) #random obstacles 随机生成障碍物
         yi = np.random.uniform(Y_MIN+0.2, Y_MAX-0.2)
         obs.append({"x": xi, "y": yi, "vx": 0.0, "vy": 0.0, "r": 0.0})
     return obs

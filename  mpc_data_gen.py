@@ -1,6 +1,3 @@
-# mpc_data_gen.py (fixed)
-# 依赖: pip install casadi h5py numpy
-
 import os, math
 import numpy as np
 import casadi as ca
@@ -8,11 +5,11 @@ import h5py
 
 # ===== 全局参数 =====
 L = 2.7
-DT = 0.1
-N  = 20
+DT = 0.1 #积分步长
+N  = 20  #prediction horizon
 K_NEAR = 3
 D_SAFE = 0.6
-Y_MIN, Y_MAX = -0.9, 0.9
+Y_MIN, Y_MAX = -0.9, 0.9 
 
 V_MIN, V_MAX = 0.0, 8.0
 A_MIN, A_MAX = -3.0, 2.0
@@ -266,7 +263,7 @@ def run_episodes(num_eps=3, steps_per_ep=80, out_path=OUT_PATH):
             )
 
             st = st1; t += DT
-            # 如果需要移动障碍，这里会生效
+            # generate moving obstacles
             propagate_obstacles(obstacles, DT)
 
             # warm start 右移

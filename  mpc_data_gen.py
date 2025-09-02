@@ -147,16 +147,19 @@ class NMPC:
 # ===== 障碍与日志 =====
 def gen_static_obstacles(M=6, x_min=8.0, x_max=40.0):
     obs = []
-    for _ in range(M):
+    for i in range(M):
         xi = np.random.uniform(x_min, x_max) #random obstacles 随机生成障碍物
         yi = np.random.uniform(Y_MIN+0.2, Y_MAX-0.2)
-        obs.append({"x": xi, "y": yi, "vx": 0.0, "vy": 0.0, "r": 0.0})
+        o = {"x": xi, "y": yi, "vx": 0.0, "vy": 0.0, "r": 0.0} #vx vy sind original 0
+        obs.append(o)
+        print(f"[gen_static_obstacles] Obstacle {i}: x={o['x']:.2f}, y={o['y']:.2f}, vx={o['vx']}, vy={o['vy']}, r={o['r']}")
     return obs
 
-def propagate_obstacles(obstacles, dt=DT):
-    for o in obstacles:
+def propagate_obstacles(obstacles, dt=DT): #障碍物衍变
+    for i,o in enumerate(obstacles):
         o["x"] += o["vx"]*dt
         o["y"] += o["vy"]*dt
+        print(f"[propagate_obstacles] Step update - Obstacle {i}: x={o['x']:.2f}, y={o['y']:.2f}")
 
 def nearest_k_obstacles(obstacles, x, y, K=K_NEAR):
     d2 = [(((o["x"]-x)**2 + (o["y"]-y)**2), o) for o in obstacles]
@@ -164,7 +167,13 @@ def nearest_k_obstacles(obstacles, x, y, K=K_NEAR):
     sel = [t[1] for t in d2[:K]] + [None]*max(0, K-len(d2))
     out = []
     for j in range(K):
-        out.append(sel[j] if sel[j] is not None else {"x": x+50.0, "y": 0.0, "vx":0.0, "vy":0.0, "r":0.0})
+#        out.append(sel[j] if sel[j] is not None else {"x": x+50.0, "y": 0.0, "vx":0.0, "vy":0.0, "r":0.0})
+        if sel[j] is not None:
+            o = sel[j]
+            print(f"[nearest_k_obstacles] Selected {j}: x={o['x']:.2f}, y={o['y']:.2f}, dist={math.hypot(o['x']-x, o['y']-y):.2f}")
+            out.append(o)
+        else:
+            out.append({"x": x+50.0, "y": 0.0, "vx":0.0, "vy":0.0, "r":0.0}) 
     return out
 
 class EpisodeLogger:
@@ -279,4 +288,4 @@ def run_episodes(num_eps=3, steps_per_ep=80, out_path=OUT_PATH):
     print(f"\nDone. File: {out_path}")
 
 if __name__ == "__main__":
-    run_episodes(num_eps=2, steps_per_ep=80, out_path=OUT_PATH)
+    run_episodes(num_eps=1, steps_per_ep=80, out_path=OUT_PATH)

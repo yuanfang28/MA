@@ -4,23 +4,34 @@ import casadi as ca
 import h5py
 
 # ===== 全局参数 =====
-L = 2.7
+L = 1
+R_EGO = 0.5
 DT = 0.1 #积分步长
 N  = 20  #prediction horizon
-K_NEAR = 3
-D_SAFE = 0.6
-Y_MIN, Y_MAX = -0.9, 0.9 
-
-V_MIN, V_MAX = 0.0, 8.0
+K_NEAR = 2
+D_SAFE = 0.1
+Y_MIN, Y_MAX = -2, 2 
+V_MIN, V_MAX = 0.0, 3.0
 A_MIN, A_MAX = -3.0, 2.0
 DELTA_MAX  = np.deg2rad(30)
 DELTA_RATE = np.deg2rad(40)
 
-W_EY, W_EPSI, W_V = 6.0, 6.0, 2.0
-W_U, W_DU, RHO_SLACK = 1e-2, 1e-2, 1e4
+OVX_MIN, OVX_MAX = -1.0,1.0
+OVY_MIN, OVY_MAX = -0.2,0.2
+OR_MIN, OR_MAX = 0.1,0.5
+
+W_EY   = 6.0   # 横向误差 y 偏差 (lateral error)
+W_EPSI = 6.0   # 航向角误差 psi 偏差 (heading error)
+W_V    = 2.0   # 度误差 (deviation from v_ref)
+W_U    = 1e-2  # 控制量本身的权重 (penalize using a, delta)
+W_DU   = 1e-2  # 控制增量的权重 (penalize changes in a, delta)
+RHO_SLACK = 1e4  # 对约束违背的惩罚 (soft constraints)
+
+W_XPROG = 1.0  # 顶部权重
 
 OUT_PATH = "mpc_dataset.h5"
-np.random.seed(42)
+#np.random.seed(42)
+np.random.seed(None)          # 使用系统熵，不固定
 
 # ===== 车辆模型 =====
 def f_cont(st, u):
@@ -52,6 +63,7 @@ class NMPC:
         self.X0     = self.opti.parameter(4, 1)
         self.V_REF  = self.opti.parameter(1, 1)
         self.XREF0  = self.opti.parameter(1, 1)
+        self.OBS_R  = self.opti.parameter(K_NEAR, N) 
 
         # 关键修正：把 (K_NEAR,2,N) 改为 (2*K_NEAR, N)
         self.OBS_XY = self.opti.parameter(2*K_NEAR, N)
@@ -71,6 +83,10 @@ class NMPC:
         self.opti.subject_to(self.X[:,0] == self.X0)
 
         for k in range(N):
+            #惩罚
+            # x_ref_k1 = self.XREF0 + self.V_REF * (k+1) * DT
+            # cost += W_XPROG * (self.X[0, k+1] - x_ref_k1)**2
+
             x_next = rk4(self.X[:,k], self.U[:,k], DT)
             self.opti.subject_to(self.X[:,k+1] == x_next)
 
@@ -95,7 +111,8 @@ class NMPC:
                 oy = self.OBS_XY[2*j+1, k]
                 dx = self.X[0,k] - ox
                 dy = self.X[1,k] - oy
-                g  = (D_SAFE**2) - (dx*dx + dy*dy)
+                rj = self.OBS_R[j, k]        
+                g  = (D_SAFE+R_EGO+rj)**2 - (dx*dx + dy*dy)
                 self.opti.subject_to(g <= self.S[j,k])
                 self.opti.subject_to(self.S[j,k] >= 0)
 
@@ -118,13 +135,14 @@ class NMPC:
         self.opti.set_initial(self.U, Ug)
         self.opti.set_initial(self.S, 0.1)
 
-    def solve(self, x0, v_ref, xref0, obs_xy_2d, u_prev_guess):
+    def solve(self, x0, v_ref, xref0, obs_xy_2d, obs_r_2d, u_prev_guess):
         # obs_xy_2d 形状必须是 (2*K_NEAR, N)
         self.opti.set_value(self.X0,   x0.reshape(4,1))
         self.opti.set_value(self.V_REF, np.array([[float(v_ref)]]))
         self.opti.set_value(self.XREF0, np.array([[float(xref0)]]))
         self.opti.set_value(self.OBS_XY, obs_xy_2d)
         self.opti.set_value(self.U_PREV, u_prev_guess)
+        self.opti.set_value(self.OBS_R,  obs_r_2d) 
 
         self.opti.set_initial(self.U, u_prev_guess)
         try:
@@ -145,18 +163,21 @@ class NMPC:
                 "status": str(e)
             }
 # ===== 障碍与日志 =====
-def gen_static_obstacles(M=6, x_min=8.0, x_max=40.0):
+def gen_static_obstacles(M=2, x_min=2.0, x_max=10.0):
     obs = []
     for i in range(M):
         xi = np.random.uniform(x_min, x_max) #random obstacles 随机生成障碍物
-        yi = np.random.uniform(Y_MIN+0.2, Y_MAX-0.2)
-        o = {"x": xi, "y": yi, "vx": 0.0, "vy": 0.0, "r": 0.0} #vx vy sind original 0
+        yi = np.random.uniform(Y_MIN, Y_MAX)
+        vxi = np.random.uniform(OVX_MIN, OVX_MAX)
+        vyi = np.random.uniform(OVY_MIN, OVY_MAX)
+        ri = np.random.uniform(OR_MIN, OR_MAX)
+        o = {"id":i, "x": xi, "y": yi, "vx": vxi, "vy": vyi, "r": ri}
         obs.append(o)
         print(f"[gen_static_obstacles] Obstacle {i}: x={o['x']:.2f}, y={o['y']:.2f}, vx={o['vx']}, vy={o['vy']}, r={o['r']}")
     return obs
 
-def propagate_obstacles(obstacles, dt=DT): #障碍物衍变
-    for i,o in enumerate(obstacles):
+def propagate_obstacles(obstacles, dt=DT):
+    for i, o in enumerate(obstacles):
         o["x"] += o["vx"]*dt
         o["y"] += o["vy"]*dt
         print(f"[propagate_obstacles] Step update - Obstacle {i}: x={o['x']:.2f}, y={o['y']:.2f}")
@@ -167,13 +188,10 @@ def nearest_k_obstacles(obstacles, x, y, K=K_NEAR):
     sel = [t[1] for t in d2[:K]] + [None]*max(0, K-len(d2))
     out = []
     for j in range(K):
-#        out.append(sel[j] if sel[j] is not None else {"x": x+50.0, "y": 0.0, "vx":0.0, "vy":0.0, "r":0.0})
-        if sel[j] is not None:
-            o = sel[j]
-            print(f"[nearest_k_obstacles] Selected {j}: x={o['x']:.2f}, y={o['y']:.2f}, dist={math.hypot(o['x']-x, o['y']-y):.2f}")
-            out.append(o)
-        else:
-            out.append({"x": x+50.0, "y": 0.0, "vx":0.0, "vy":0.0, "r":0.0}) 
+        #out.append(sel[j] if sel[j] is not None else {"x": x+50.0, "y": 0.0, "vx":0.0, "vy":0.0, "r":0.0})
+        out.append(sel[j] if sel[j] is not None else
+           {"id": -1, "x": x+50.0, "y": 0.0, "vx":0.0, "vy":0.0, "r":0.0})
+
     return out
 
 class EpisodeLogger:
@@ -190,19 +208,24 @@ class EpisodeLogger:
             env += [dx, dy, dist, o["vx"], o["vy"]]
         env += [boundaries["d_left"], boundaries["d_right"], state.get("ey",0.0), state.get("epsi",0.0)]
         obs_xy = []
+        obs_id = []
         for j in range(self.K):
             o = obstacles_near[j]
             #obs_xy += [o["x"], o["y"], o["vx"], o["vy"]]
+            #obs_xy += [o["x"], o["y"], o["vx"], o["vy"], o.get("r", 0.0)]
             obs_xy += [o["x"], o["y"], o["vx"], o["vy"], o.get("r", 0.0)]
+            obs_id.append(int(o.get("id", -1)))
+
         self.buf.append({
             "t": t,
             "state": [state["x"], state["y"], state["psi"], state["v"]],
             "ctrl":  [ctrl["a"], ctrl["delta"]],
             "env":   env,
             "label_ref": [label_ref[0], label_ref[1]],
-            "obs_xy": obs_xy,  
+            "obs_xy": obs_xy, 
+            "obs_id": obs_id,
         })
-    def to_h5(self, h5file, traj_name):
+    def to_h5(self, h5file, traj_name, mode ="a"):
         os.makedirs(os.path.dirname(h5file) or ".", exist_ok=True)
         t   = np.array([r["t"] for r in self.buf], dtype=np.float32)
         st  = np.array([r["state"] for r in self.buf], dtype=np.float32)
@@ -212,7 +235,8 @@ class EpisodeLogger:
         obs_dim = self.K * 5
         obs = np.array([r.get("obs_xy", [np.nan]*obs_dim) for r in self.buf], dtype=np.float32)
         #obs = np.array([r["obs_xy"] for r in self.buf], dtype=np.float32)  # <--- 新增行
-        with h5py.File(h5file, "a") as f:
+        ids = np.array([r.get("obs_id", [-1]*self.K)      for r in self.buf], dtype=np.int32) 
+        with h5py.File(h5file, mode) as f:
             if traj_name in f:
                 del f[traj_name]         # 先删除同名组
             g = f.create_group(traj_name)
@@ -221,7 +245,16 @@ class EpisodeLogger:
             g.create_dataset("ctrl", data=ct)
             g.create_dataset("env", data=env)
             g.create_dataset("label_ref", data=ref)
-            g.create_dataset("obs_xy", data=obs)  # <--- 新增行
+            g.create_dataset("obs_xy", data=obs)
+            g.create_dataset("obs_id", data=ids)  
+            g.attrs["R_EGO"] = float(R_EGO)
+            # g.attrs.update({
+            #                 "D_SAFE": float(D_SAFE),
+            #                 "Y_MIN": float(Y_MIN),
+            #                 "Y_MAX": float(Y_MAX),
+            #                 "DT": float(DT),
+            #                 "K_NEAR": int(K_NEAR),
+            #             })
 
 # ===== 主流程 =====
 def run_episodes(num_eps=3, steps_per_ep=80, out_path=OUT_PATH):
@@ -231,10 +264,10 @@ def run_episodes(num_eps=3, steps_per_ep=80, out_path=OUT_PATH):
                        np.random.uniform(-0.2, 0.2),
                        np.random.uniform(-0.05, 0.05),
                        np.random.uniform(1.0, 3.5)], dtype=np.float64)
-        v_ref = np.random.uniform(1.5, 4.0)
+        v_ref = np.random.uniform(0.2, V_MAX)
         x_ref0 = float(x0[0])
 
-        obstacles = gen_static_obstacles(M=6, x_min=10.0, x_max=45.0)
+        obstacles = gen_static_obstacles(M=2, x_min=2.0, x_max=10.0)
         U_prev = np.zeros((2, N), dtype=np.float64)
 
         logger = EpisodeLogger(K_obs=K_NEAR)
@@ -244,13 +277,16 @@ def run_episodes(num_eps=3, steps_per_ep=80, out_path=OUT_PATH):
             near = nearest_k_obstacles(obstacles, st[0], st[1], K=K_NEAR)
             # 构造形状 (2*K_NEAR, N) 的障碍预测矩阵
             obs_mat = np.zeros((2*K_NEAR, N), dtype=np.float64)
+            obs_r_mat = np.zeros((K_NEAR, N), dtype=np.float64)      
             for j in range(K_NEAR):
                 ox, oy, vx, vy = near[j]["x"], near[j]["y"], near[j]["vx"], near[j]["vy"]
+                rj     = float(near[j].get("r", 0.0))  
                 for h in range(N):
                     obs_mat[2*j,   h] = ox + vx*(h*DT)
                     obs_mat[2*j+1, h] = oy + vy*(h*DT)
+                    obs_r_mat[j,   h] = rj 
 
-            sol = mpc.solve(st, v_ref, x_ref0, obs_mat, U_prev)
+            sol = mpc.solve(st, v_ref, x_ref0, obs_mat, obs_r_mat, U_prev)
             U_opt, X_opt = sol["U"], sol["X"]
 
             a, delta = float(U_opt[0,0]), float(U_opt[1,0])
@@ -275,6 +311,11 @@ def run_episodes(num_eps=3, steps_per_ep=80, out_path=OUT_PATH):
             # generate moving obstacles
             propagate_obstacles(obstacles, DT)
 
+            print(f"\n[Step {k}] Current obstacles:")
+            for i, o in enumerate(obstacles):
+                print(f"  Obstacle {i}: x={o['x']:.2f}, y={o['y']:.2f}, "
+                    f"vx={o['vx']:.2f}, vy={o['vy']:.2f}, r={o['r']:.2f}")
+
             # warm start 右移
             U_shift = np.zeros_like(U_opt)
             U_shift[:, :-1] = U_opt[:, 1:]
@@ -282,10 +323,12 @@ def run_episodes(num_eps=3, steps_per_ep=80, out_path=OUT_PATH):
             U_prev = U_shift
 
         traj_name = f"traj_ep{ep:03d}"
-        logger.to_h5(out_path, traj_name)
+        # 第一次运行时清空文件，后面都追加
+        mode = "w" if ep == 0 else "a"
+        logger.to_h5(out_path, traj_name, mode=mode)
         print(f"[EP {ep}] saved -> {out_path}:{traj_name}, steps={steps_per_ep}")
 
     print(f"\nDone. File: {out_path}")
 
 if __name__ == "__main__":
-    run_episodes(num_eps=1, steps_per_ep=80, out_path=OUT_PATH)
+    run_episodes(num_eps=2, steps_per_ep=80, out_path=OUT_PATH)

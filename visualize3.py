@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import Circle
 
-# ---- 你的单集可视化（必须含 obs_id，且只弹窗不保存）----
+# ---- 单集可视化（必须含 obs_id，且只弹窗不保存）----
 def visualize_episode(
     h5_path: str,
     ep_name: str,

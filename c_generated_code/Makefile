@@ -88,8 +88,8 @@ OBJ+= $(OCP_OBJ)
 EXTERNAL_DIR=
 EXTERNAL_LIB=
 
-INCLUDE_PATH = /home/yuanfang/acados/include
-LIB_PATH = /home/yuanfang/acados/lib
+INCLUDE_PATH = /Users/liuyuanfang/acados/include
+LIB_PATH = /Users/liuyuanfang/acados/lib
 
 # preprocessor flags for make's implicit rules
 CPPFLAGS+= -I$(INCLUDE_PATH)
@@ -116,9 +116,9 @@ LDLIBS+= -lm
 LDLIBS+= 
 
 # libraries
-LIBACADOS_SOLVER=libacados_solver_nmpc_acados_solver.so
-LIBACADOS_OCP_SOLVER=libacados_ocp_solver_nmpc_acados_solver.so
-LIBACADOS_SIM_SOLVER=lib$(SIM_SRC:.c=.so)
+LIBACADOS_SOLVER=libacados_solver_nmpc_acados_solver.dylib
+LIBACADOS_OCP_SOLVER=libacados_ocp_solver_nmpc_acados_solver.dylib
+LIBACADOS_SIM_SOLVER=lib$(SIM_SRC:.c=.dylib)
 
 # virtual targets
 .PHONY : all clean
@@ -149,7 +149,7 @@ ocp_cython_c: ocp_shared_lib
 	-o acados_ocp_solver_pyx.c \
 	-I $(INCLUDE_PATH)/../interfaces/acados_template/acados_template \
 	$(INCLUDE_PATH)/../interfaces/acados_template/acados_template/acados_ocp_solver_pyx.pyx \
-	-I /home/yuanfang/Projects/MA/c_generated_code \
+	-I /Users/liuyuanfang/Desktop/MA_MPC/c_generated_code \
 
 ocp_cython_o: ocp_cython_c
 	$(CC) $(ACADOS_FLAGS) -c -O2 \
@@ -159,16 +159,16 @@ ocp_cython_o: ocp_cython_c
 	-I $(INCLUDE_PATH)/blasfeo/include/ \
 	-I $(INCLUDE_PATH)/hpipm/include/ \
 	-I $(INCLUDE_PATH) \
-	-I /home/yuanfang/Projects/MA/.venv-clean/lib/python3.10/site-packages/numpy/_core/include \
-	-I /usr/include/python3.10 \
+	-I /Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/numpy/_core/include \
+	-I /Library/Frameworks/Python.framework/Versions/3.12/include/python3.12 \
 	acados_ocp_solver_pyx.c \
 
 ocp_cython: ocp_cython_o
 	$(CC) $(ACADOS_FLAGS) -shared \
-	-o acados_ocp_solver_pyx.so \
+	-o acados_ocp_solver_pyx.dylib \
 	-Wl,-rpath=$(LIB_PATH) \
 	acados_ocp_solver_pyx.o \
-	$(abspath .)/libacados_ocp_solver_nmpc_acados_solver.so \
+	$(abspath .)/libacados_ocp_solver_nmpc_acados_solver.dylib \
 	$(LDFLAGS) $(LDLIBS)
 
 
@@ -178,7 +178,7 @@ sim_cython_c: sim_shared_lib
 	-o acados_sim_solver_pyx.c \
 	-I $(INCLUDE_PATH)/../interfaces/acados_template/acados_template \
 	$(INCLUDE_PATH)/../interfaces/acados_template/acados_template/acados_sim_solver_pyx.pyx \
-	-I /home/yuanfang/Projects/MA/c_generated_code \
+	-I /Users/liuyuanfang/Desktop/MA_MPC/c_generated_code \
 
 sim_cython_o: sim_cython_c
 	$(CC) $(ACADOS_FLAGS) -c -O2 \
@@ -188,16 +188,16 @@ sim_cython_o: sim_cython_c
 	-I $(INCLUDE_PATH)/blasfeo/include/ \
 	-I $(INCLUDE_PATH)/hpipm/include/ \
 	-I $(INCLUDE_PATH) \
-	-I /home/yuanfang/Projects/MA/.venv-clean/lib/python3.10/site-packages/numpy/_core/include \
-	-I /usr/include/python3.10 \
+	-I /Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/numpy/_core/include \
+	-I /Library/Frameworks/Python.framework/Versions/3.12/include/python3.12 \
 	acados_sim_solver_pyx.c \
 
 sim_cython: sim_cython_o
 	$(CC) $(ACADOS_FLAGS) -shared \
-	-o acados_sim_solver_pyx.so \
+	-o acados_sim_solver_pyx.dylib \
 	-Wl,-rpath=$(LIB_PATH) \
 	acados_sim_solver_pyx.o \
-	$(abspath .)/libacados_sim_solver_nmpc_acados_solver.so \
+	$(abspath .)/libacados_sim_solver_nmpc_acados_solver.dylib \
 	$(LDFLAGS) $(LDLIBS)
 
 clean:
@@ -209,13 +209,13 @@ clean_ocp_shared_lib:
 	$(RM) $(OCP_OBJ)
 
 clean_ocp_cython:
-	$(RM) libacados_ocp_solver_nmpc_acados_solver.so
+	$(RM) libacados_ocp_solver_nmpc_acados_solver.dylib
 	$(RM) acados_solver_nmpc_acados_solver.o
-	$(RM) acados_ocp_solver_pyx.so
+	$(RM) acados_ocp_solver_pyx.dylib
 	$(RM) acados_ocp_solver_pyx.o
 
 clean_sim_cython:
-	$(RM) libacados_sim_solver_nmpc_acados_solver.so
+	$(RM) libacados_sim_solver_nmpc_acados_solver.dylib
 	$(RM) acados_sim_solver_nmpc_acados_solver.o
-	$(RM) acados_sim_solver_pyx.so
+	$(RM) acados_sim_solver_pyx.dylib
 	$(RM) acados_sim_solver_pyx.o

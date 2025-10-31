@@ -66,7 +66,7 @@ def visualize_episode(
                 ax.add_patch(Circle((xs[k], ys[k]), rs[k] + R_EGO + D_SAFE,
                                     fill=False, linestyle="--", linewidth=0.8))
         else:
-            for ix in [-1]:  # 只画首尾两个圆
+            for ix in [0,-1]:  # 只画首尾两个圆
                 ax.add_patch(Circle((xs[ix], ys[ix]), rs[ix], fill=False, linewidth=1.2))
                 ax.add_patch(Circle((xs[ix], ys[ix]), rs[ix] + R_EGO + D_SAFE,
                                     fill=False, linestyle="--", linewidth=1.0))

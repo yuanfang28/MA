@@ -503,8 +503,8 @@ void nmpc_acados_solver_acados_setup_nlp_in(nmpc_acados_solver_solver_capsule* c
 
    double* W_0 = calloc(NY0*NY0, sizeof(double));
     // change only the non-zero elements:
-    W_0[0+(NY0) * 0] = 6;
-    W_0[1+(NY0) * 1] = 6;
+    W_0[0+(NY0) * 0] = 1;
+    W_0[1+(NY0) * 1] = 1;
     W_0[2+(NY0) * 2] = 2;
     ocp_nlp_cost_model_set(nlp_config, nlp_dims, nlp_in, 0, "W", W_0);
     free(W_0);
@@ -518,11 +518,11 @@ void nmpc_acados_solver_acados_setup_nlp_in(nmpc_acados_solver_solver_capsule* c
     free(yref);
     double* W = calloc(NY*NY, sizeof(double));
     // change only the non-zero elements:
-    W[0+(NY) * 0] = 6;
-    W[1+(NY) * 1] = 6;
+    W[0+(NY) * 0] = 1;
+    W[1+(NY) * 1] = 1;
     W[2+(NY) * 2] = 2;
     W[3+(NY) * 3] = 0.01;
-    W[4+(NY) * 4] = 0.01;
+    W[4+(NY) * 4] = 0.001;
 
     for (int i = 1; i < N; i++)
     {
@@ -536,9 +536,9 @@ void nmpc_acados_solver_acados_setup_nlp_in(nmpc_acados_solver_solver_capsule* c
 
     double* W_e = calloc(NYN*NYN, sizeof(double));
     // change only the non-zero elements:
-    W_e[0+(NYN) * 0] = 6;
-    W_e[1+(NYN) * 1] = 6;
-    W_e[2+(NYN) * 2] = 2;
+    W_e[0+(NYN) * 0] = 10;
+    W_e[1+(NYN) * 1] = 5;
+    W_e[2+(NYN) * 2] = 4;
     ocp_nlp_cost_model_set(nlp_config, nlp_dims, nlp_in, N, "W", W_e);
     free(W_e);
     ocp_nlp_cost_model_set_external_param_fun(nlp_config, nlp_dims, nlp_in, 0, "nls_y_fun", &capsule->cost_y_0_fun);
@@ -562,10 +562,10 @@ void nmpc_acados_solver_acados_setup_nlp_in(nmpc_acados_solver_solver_capsule* c
     double* zu_0 = zlu0_mem+NS0*3;
 
     // change only the non-zero elements:
-    Zl_0[0] = 1000;
-    Zl_0[1] = 1000;
-    Zu_0[0] = 1000;
-    Zu_0[1] = 1000;
+    Zl_0[0] = 100000;
+    Zl_0[1] = 100000;
+    Zu_0[0] = 100000;
+    Zu_0[1] = 100000;
 
     ocp_nlp_cost_model_set(nlp_config, nlp_dims, nlp_in, 0, "Zl", Zl_0);
     ocp_nlp_cost_model_set(nlp_config, nlp_dims, nlp_in, 0, "Zu", Zu_0);
@@ -579,10 +579,10 @@ void nmpc_acados_solver_acados_setup_nlp_in(nmpc_acados_solver_solver_capsule* c
     double* zl = zlumem+NS*2;
     double* zu = zlumem+NS*3;
     // change only the non-zero elements:
-    Zl[0] = 1000;
-    Zl[1] = 1000;
-    Zu[0] = 1000;
-    Zu[1] = 1000;
+    Zl[0] = 100000;
+    Zl[1] = 100000;
+    Zu[0] = 100000;
+    Zu[1] = 100000;
 
     for (int i = 1; i < N; i++)
     {
@@ -623,8 +623,8 @@ void nmpc_acados_solver_acados_setup_nlp_in(nmpc_acados_solver_solver_capsule* c
     double* luh_0 = calloc(2*NH0, sizeof(double));
     double* lh_0 = luh_0;
     double* uh_0 = luh_0 + NH0;
-    lh_0[0] = -0.06981317007977318;
-    uh_0[0] = 0.06981317007977318;
+    lh_0[0] = -0.26179938779914946;
+    uh_0[0] = 0.26179938779914946;
     uh_0[1] = 100000000;
     uh_0[2] = 100000000;
 
@@ -712,8 +712,8 @@ void nmpc_acados_solver_acados_setup_nlp_in(nmpc_acados_solver_solver_capsule* c
     double* luh = calloc(2*NH, sizeof(double));
     double* lh = luh;
     double* uh = luh + NH;
-    lh[0] = -0.06981317007977318;
-    uh[0] = 0.06981317007977318;
+    lh[0] = -0.26179938779914946;
+    uh[0] = 0.26179938779914946;
     uh[1] = 100000000;
     uh[2] = 100000000;
 

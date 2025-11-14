@@ -31,13 +31,14 @@ OVX_MIN, OVX_MAX = -1.0,1.0 #obstale form and velocity limit
 OVY_MIN, OVY_MAX = -0.2,0.2
 OR_MIN, OR_MAX = 0.1,0.5
 
-# cost function weights - 使用与 CasADi 版本相同的权重
+# cost function weights
 W_EY   = 6.0   # y lateral error
 W_EPSI = 6.0   # psi heading error
 W_V    = 2.0   # deviation from v_ref
-W_U    = 1e-2  # control magnitude penalty
+W_A    = 1e-2  # acceleration penalty
+W_DELTA = 1e-3 # steering angle penalty
 W_DU   = 1e-2  # control rate penalty
-RHO_SLACK = 1e3  # soft constraints penalty (与 CasADi 版本一致)
+RHO_SLACK = 1e3  # soft constraints penalty
 
 OUT_PATH = "mpc_dataset.h5"
 np.random.seed(None)
@@ -158,7 +159,7 @@ class NMPC_Acados_ExplicitSlack:
         )
 
         # 权重矩阵：状态权重 + 控制权重 + 控制增量权重 + 松弛变量权重
-        W_weights = [W_EY, W_EPSI, W_V, W_U, W_U, W_DU, W_DU] + [RHO_SLACK] * self.K
+        W_weights = [W_EY, W_EPSI, W_V, W_A, W_DELTA, W_DU, W_DU] + [RHO_SLACK] * self.K
         ocp.cost.W = np.diag(W_weights)
         ocp.dims.ny = ocp.model.cost_y_expr.shape[0]
         ocp.cost.yref = np.zeros(ocp.dims.ny)
@@ -246,7 +247,7 @@ class NMPC_Acados_ExplicitSlack:
         print(f"Declared nh_0 (dims): {ocp.dims.nh_0}")
         print(f"Expression h (model) len: {ocp.model.con_h_expr.shape[0]}")
         print(f"Cost ny (middle stage): {ocp.dims.ny} (3 state + 2 ctrl + 2 du + {self.K} slack)")
-        print(f"RHO_SLACK = {RHO_SLACK}, W_DU = {W_DU}")
+        print(f"Weights: W_A={W_A}, W_DELTA={W_DELTA}, W_DU={W_DU}, RHO_SLACK={RHO_SLACK}")
         print("------------------------------------------\n")
 
         # --- 7. 创建求解器 ---

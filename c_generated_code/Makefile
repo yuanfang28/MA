@@ -39,42 +39,40 @@
 # model
 MODEL_SRC=
 
-MODEL_SRC+= nmpc_acados_solver_model/nmpc_acados_solver_expl_ode_fun.c
-MODEL_SRC+= nmpc_acados_solver_model/nmpc_acados_solver_expl_vde_forw.c
-MODEL_SRC+= nmpc_acados_solver_model/nmpc_acados_solver_expl_vde_adj.c
+MODEL_SRC+= vehicle_model_model/vehicle_model_expl_ode_fun.c
+MODEL_SRC+= vehicle_model_model/vehicle_model_expl_vde_forw.c
+MODEL_SRC+= vehicle_model_model/vehicle_model_expl_vde_adj.c
 
 MODEL_OBJ := $(MODEL_SRC:.c=.o)
 # optimal control problem - mostly CasADi exports
 OCP_SRC=
 
 
-OCP_SRC+= nmpc_acados_solver_constraints/nmpc_acados_solver_constr_h_0_fun_jac_uxt_zt.c
-OCP_SRC+= nmpc_acados_solver_constraints/nmpc_acados_solver_constr_h_0_fun.c
-OCP_SRC+= nmpc_acados_solver_constraints/nmpc_acados_solver_constr_h_fun_jac_uxt_zt.c
-OCP_SRC+= nmpc_acados_solver_constraints/nmpc_acados_solver_constr_h_fun.c
-OCP_SRC+= nmpc_acados_solver_cost/nmpc_acados_solver_cost_y_0_fun.c
-OCP_SRC+= nmpc_acados_solver_cost/nmpc_acados_solver_cost_y_0_fun_jac_ut_xt.c
-OCP_SRC+= nmpc_acados_solver_cost/nmpc_acados_solver_cost_y_0_hess.c
-OCP_SRC+= nmpc_acados_solver_cost/nmpc_acados_solver_cost_y_fun.c
-OCP_SRC+= nmpc_acados_solver_cost/nmpc_acados_solver_cost_y_fun_jac_ut_xt.c
-OCP_SRC+= nmpc_acados_solver_cost/nmpc_acados_solver_cost_y_hess.c
-OCP_SRC+= nmpc_acados_solver_cost/nmpc_acados_solver_cost_y_e_fun.c
-OCP_SRC+= nmpc_acados_solver_cost/nmpc_acados_solver_cost_y_e_fun_jac_ut_xt.c
-OCP_SRC+= nmpc_acados_solver_cost/nmpc_acados_solver_cost_y_e_hess.c
+OCP_SRC+= vehicle_model_constraints/vehicle_model_constr_h_fun_jac_uxt_zt.c
+OCP_SRC+= vehicle_model_constraints/vehicle_model_constr_h_fun.c
+OCP_SRC+= vehicle_model_cost/vehicle_model_cost_y_0_fun.c
+OCP_SRC+= vehicle_model_cost/vehicle_model_cost_y_0_fun_jac_ut_xt.c
+OCP_SRC+= vehicle_model_cost/vehicle_model_cost_y_0_hess.c
+OCP_SRC+= vehicle_model_cost/vehicle_model_cost_y_fun.c
+OCP_SRC+= vehicle_model_cost/vehicle_model_cost_y_fun_jac_ut_xt.c
+OCP_SRC+= vehicle_model_cost/vehicle_model_cost_y_hess.c
+OCP_SRC+= vehicle_model_cost/vehicle_model_cost_y_e_fun.c
+OCP_SRC+= vehicle_model_cost/vehicle_model_cost_y_e_fun_jac_ut_xt.c
+OCP_SRC+= vehicle_model_cost/vehicle_model_cost_y_e_hess.c
 
-OCP_SRC+= acados_solver_nmpc_acados_solver.c
+OCP_SRC+= acados_solver_vehicle_model.c
 
 OCP_OBJ := $(OCP_SRC:.c=.o)
 # for sim solver
-SIM_SRC= acados_sim_solver_nmpc_acados_solver.c
+SIM_SRC= acados_sim_solver_vehicle_model.c
 SIM_OBJ := $(SIM_SRC:.c=.o)
 
 # for target example_sim
-EX_SIM_SRC= main_sim_nmpc_acados_solver.c
+EX_SIM_SRC= main_sim_vehicle_model.c
 EX_SIM_OBJ := $(EX_SIM_SRC:.c=.o)
 EX_SIM_EXE := $(EX_SIM_SRC:.c=)
 # for target example
-EX_SRC= main_nmpc_acados_solver.c
+EX_SRC= main_vehicle_model.c
 EX_OBJ := $(EX_SRC:.c=.o)
 EX_EXE := $(EX_SRC:.c=)
 
@@ -116,8 +114,8 @@ LDLIBS+= -lm
 LDLIBS+= 
 
 # libraries
-LIBACADOS_SOLVER=libacados_solver_nmpc_acados_solver.dylib
-LIBACADOS_OCP_SOLVER=libacados_ocp_solver_nmpc_acados_solver.dylib
+LIBACADOS_SOLVER=libacados_solver_vehicle_model.dylib
+LIBACADOS_OCP_SOLVER=libacados_ocp_solver_vehicle_model.dylib
 LIBACADOS_SIM_SOLVER=lib$(SIM_SRC:.c=.dylib)
 
 # virtual targets
@@ -168,7 +166,7 @@ ocp_cython: ocp_cython_o
 	-o acados_ocp_solver_pyx.dylib \
 	-Wl,-rpath=$(LIB_PATH) \
 	acados_ocp_solver_pyx.o \
-	$(abspath .)/libacados_ocp_solver_nmpc_acados_solver.dylib \
+	$(abspath .)/libacados_ocp_solver_vehicle_model.dylib \
 	$(LDFLAGS) $(LDLIBS)
 
 
@@ -197,7 +195,7 @@ sim_cython: sim_cython_o
 	-o acados_sim_solver_pyx.dylib \
 	-Wl,-rpath=$(LIB_PATH) \
 	acados_sim_solver_pyx.o \
-	$(abspath .)/libacados_sim_solver_nmpc_acados_solver.dylib \
+	$(abspath .)/libacados_sim_solver_vehicle_model.dylib \
 	$(LDFLAGS) $(LDLIBS)
 
 clean:
@@ -209,13 +207,13 @@ clean_ocp_shared_lib:
 	$(RM) $(OCP_OBJ)
 
 clean_ocp_cython:
-	$(RM) libacados_ocp_solver_nmpc_acados_solver.dylib
-	$(RM) acados_solver_nmpc_acados_solver.o
+	$(RM) libacados_ocp_solver_vehicle_model.dylib
+	$(RM) acados_solver_vehicle_model.o
 	$(RM) acados_ocp_solver_pyx.dylib
 	$(RM) acados_ocp_solver_pyx.o
 
 clean_sim_cython:
-	$(RM) libacados_sim_solver_nmpc_acados_solver.dylib
-	$(RM) acados_sim_solver_nmpc_acados_solver.o
+	$(RM) libacados_sim_solver_vehicle_model.dylib
+	$(RM) acados_sim_solver_vehicle_model.o
 	$(RM) acados_sim_solver_pyx.dylib
 	$(RM) acados_sim_solver_pyx.o

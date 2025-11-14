@@ -30,34 +30,34 @@
 
 cimport acados_solver_common
 
-cdef extern from "acados_solver_nmpc_acados_solver.h":
-    ctypedef struct nlp_solver_capsule "nmpc_acados_solver_solver_capsule":
+cdef extern from "acados_solver_vehicle_model.h":
+    ctypedef struct nlp_solver_capsule "vehicle_model_solver_capsule":
         pass
 
-    nlp_solver_capsule * acados_create_capsule "nmpc_acados_solver_acados_create_capsule"()
-    int acados_free_capsule "nmpc_acados_solver_acados_free_capsule"(nlp_solver_capsule *capsule)
+    nlp_solver_capsule * acados_create_capsule "vehicle_model_acados_create_capsule"()
+    int acados_free_capsule "vehicle_model_acados_free_capsule"(nlp_solver_capsule *capsule)
 
-    int acados_create "nmpc_acados_solver_acados_create"(nlp_solver_capsule * capsule)
+    int acados_create "vehicle_model_acados_create"(nlp_solver_capsule * capsule)
 
-    int acados_create_with_discretization "nmpc_acados_solver_acados_create_with_discretization"(nlp_solver_capsule * capsule, int n_time_steps, double* new_time_steps)
-    int acados_update_time_steps "nmpc_acados_solver_acados_update_time_steps"(nlp_solver_capsule * capsule, int N, double* new_time_steps)
-    int acados_update_qp_solver_cond_N "nmpc_acados_solver_acados_update_qp_solver_cond_N"(nlp_solver_capsule * capsule, int qp_solver_cond_N)
+    int acados_create_with_discretization "vehicle_model_acados_create_with_discretization"(nlp_solver_capsule * capsule, int n_time_steps, double* new_time_steps)
+    int acados_update_time_steps "vehicle_model_acados_update_time_steps"(nlp_solver_capsule * capsule, int N, double* new_time_steps)
+    int acados_update_qp_solver_cond_N "vehicle_model_acados_update_qp_solver_cond_N"(nlp_solver_capsule * capsule, int qp_solver_cond_N)
 
-    int acados_update_params "nmpc_acados_solver_acados_update_params"(nlp_solver_capsule * capsule, int stage, double *value, int np_)
-    int acados_update_params_sparse "nmpc_acados_solver_acados_update_params_sparse"(nlp_solver_capsule * capsule, int stage, int *idx, double *p, int n_update)
-    int acados_set_p_global_and_precompute_dependencies "nmpc_acados_solver_acados_set_p_global_and_precompute_dependencies"(nlp_solver_capsule * capsule, double *value, int data_len)
-    int acados_solve "nmpc_acados_solver_acados_solve"(nlp_solver_capsule * capsule)
-    int acados_reset "nmpc_acados_solver_acados_reset"(nlp_solver_capsule * capsule, int reset_qp_solver_mem)
-    int acados_free "nmpc_acados_solver_acados_free"(nlp_solver_capsule * capsule)
-    void acados_print_stats "nmpc_acados_solver_acados_print_stats"(nlp_solver_capsule * capsule)
+    int acados_update_params "vehicle_model_acados_update_params"(nlp_solver_capsule * capsule, int stage, double *value, int np_)
+    int acados_update_params_sparse "vehicle_model_acados_update_params_sparse"(nlp_solver_capsule * capsule, int stage, int *idx, double *p, int n_update)
+    int acados_set_p_global_and_precompute_dependencies "vehicle_model_acados_set_p_global_and_precompute_dependencies"(nlp_solver_capsule * capsule, double *value, int data_len)
+    int acados_solve "vehicle_model_acados_solve"(nlp_solver_capsule * capsule)
+    int acados_reset "vehicle_model_acados_reset"(nlp_solver_capsule * capsule, int reset_qp_solver_mem)
+    int acados_free "vehicle_model_acados_free"(nlp_solver_capsule * capsule)
+    void acados_print_stats "vehicle_model_acados_print_stats"(nlp_solver_capsule * capsule)
 
-    int acados_custom_update "nmpc_acados_solver_acados_custom_update"(nlp_solver_capsule* capsule, double * data, int data_len)
+    int acados_custom_update "vehicle_model_acados_custom_update"(nlp_solver_capsule* capsule, double * data, int data_len)
 
-    acados_solver_common.ocp_nlp_in *acados_get_nlp_in "nmpc_acados_solver_acados_get_nlp_in"(nlp_solver_capsule * capsule)
-    acados_solver_common.ocp_nlp_out *acados_get_nlp_out "nmpc_acados_solver_acados_get_nlp_out"(nlp_solver_capsule * capsule)
-    acados_solver_common.ocp_nlp_out *acados_get_sens_out "nmpc_acados_solver_acados_get_sens_out"(nlp_solver_capsule * capsule)
-    acados_solver_common.ocp_nlp_solver *acados_get_nlp_solver "nmpc_acados_solver_acados_get_nlp_solver"(nlp_solver_capsule * capsule)
-    acados_solver_common.ocp_nlp_config *acados_get_nlp_config "nmpc_acados_solver_acados_get_nlp_config"(nlp_solver_capsule * capsule)
-    void *acados_get_nlp_opts "nmpc_acados_solver_acados_get_nlp_opts"(nlp_solver_capsule * capsule)
-    acados_solver_common.ocp_nlp_dims *acados_get_nlp_dims "nmpc_acados_solver_acados_get_nlp_dims"(nlp_solver_capsule * capsule)
-    acados_solver_common.ocp_nlp_plan *acados_get_nlp_plan "nmpc_acados_solver_acados_get_nlp_plan"(nlp_solver_capsule * capsule)
+    acados_solver_common.ocp_nlp_in *acados_get_nlp_in "vehicle_model_acados_get_nlp_in"(nlp_solver_capsule * capsule)
+    acados_solver_common.ocp_nlp_out *acados_get_nlp_out "vehicle_model_acados_get_nlp_out"(nlp_solver_capsule * capsule)
+    acados_solver_common.ocp_nlp_out *acados_get_sens_out "vehicle_model_acados_get_sens_out"(nlp_solver_capsule * capsule)
+    acados_solver_common.ocp_nlp_solver *acados_get_nlp_solver "vehicle_model_acados_get_nlp_solver"(nlp_solver_capsule * capsule)
+    acados_solver_common.ocp_nlp_config *acados_get_nlp_config "vehicle_model_acados_get_nlp_config"(nlp_solver_capsule * capsule)
+    void *acados_get_nlp_opts "vehicle_model_acados_get_nlp_opts"(nlp_solver_capsule * capsule)
+    acados_solver_common.ocp_nlp_dims *acados_get_nlp_dims "vehicle_model_acados_get_nlp_dims"(nlp_solver_capsule * capsule)
+    acados_solver_common.ocp_nlp_plan *acados_get_nlp_plan "vehicle_model_acados_get_nlp_plan"(nlp_solver_capsule * capsule)

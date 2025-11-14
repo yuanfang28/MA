@@ -164,13 +164,14 @@ class NMPC_Acados_ExplicitSlack:
         ocp.dims.ny = ocp.model.cost_y_expr.shape[0]
         ocp.cost.yref = np.zeros(ocp.dims.ny)
 
-        # 终端阶段 (k=N) - 只有状态
+        # 终端阶段 (k=N) - 只有状态，增强权重鼓励回到中线
         ocp.model.cost_y_expr_e = ca.vertcat(
             x_aug_sym[1],
             x_aug_sym[2],
             x_aug_sym[3] - v_ref_sym
         )
-        ocp.cost.W_e = np.diag([W_EY, W_EPSI, W_V])
+        # 增强终端成本，强烈鼓励预测轨迹的终点回到中线
+        ocp.cost.W_e = np.diag([W_EY * 20, W_EPSI * 10, W_V * 2])
         ocp.dims.ny_e = ocp.model.cost_y_expr_e.shape[0]
         ocp.cost.yref_e = np.zeros(ocp.dims.ny_e)
 
@@ -286,38 +287,47 @@ class NMPC_Acados_ExplicitSlack:
             self.solver.set(k, 'u', U_guess[:, k])  # 包含松弛变量
         self.solver.set(self.N, 'x', X_guess[:, self.N])
 
-        # 4. 设置参考轨迹 yref（与原版一致）
+        # 4. 设置参考轨迹 yref（修正维度 + 更激进的回到中线策略）
         y_ref_current = x0_aug[1]
         threshold = 0.05
 
+        # 正确的 yref 维度：ey, epsi, v_err, a, delta, da, d_delta, S_0, S_1
+        ny_stage = 3 + 2 + 2 + self.K  # = 9
+
         if abs(y_ref_current) < threshold:
+            # 死区：已经在中线附近，保持 yref = 0
             yref_0 = np.array([0.0, 0.0, 0.0])
             self.solver.set(0, 'yref', yref_0)
 
             for k in range(1, self.N):
-                yref_k = np.zeros(self.nu + 3)  # 包含松弛变量维度
+                yref_k = np.zeros(ny_stage)
                 self.solver.set(k, 'yref', yref_k)
 
             yref_e = np.array([0.0, 0.0, 0.0])
             self.solver.set(self.N, 'yref', yref_e)
         else:
+            # 更激进的衰减策略：快速回到中线
             if abs(y_ref_current) > 0.5:
-                decay_rate = 0.85
+                decay_rate = 0.75  # 大偏离：更快回归（原 0.85）
             elif abs(y_ref_current) > 0.2:
-                decay_rate = 0.90
+                decay_rate = 0.82  # 中等偏离：较快回归（原 0.90）
             else:
-                decay_rate = 0.95
+                decay_rate = 0.90  # 轻微偏离：平滑回归（原 0.95）
 
+            # 阶段 0 (k=0): yref_0 维度 = 3
             y_ref_0 = y_ref_current * decay_rate
             yref_0 = np.array([y_ref_0, 0.0, 0.0])
             self.solver.set(0, 'yref', yref_0)
 
+            # 阶段 1~N-1: yref 维度 = ny_stage
             for k in range(1, self.N):
                 y_ref_k = y_ref_current * (decay_rate ** k)
-                yref_k = np.zeros(self.nu + 3)
-                yref_k[0] = y_ref_k  # ey
+                yref_k = np.zeros(ny_stage)
+                yref_k[0] = y_ref_k  # ey 参考
+                # 其余保持 0（epsi, v_err, a, delta, da, d_delta, S_0, S_1）
                 self.solver.set(k, 'yref', yref_k)
 
+            # 终点阶段 (k=N): 强制要求回到中线
             yref_e = np.array([0.0, 0.0, 0.0])
             self.solver.set(self.N, 'yref', yref_e)
 

@@ -85,7 +85,7 @@ class NMPC_Acados_ExplicitSlack:
         # 1. 定义维度：关键修改 - 将松弛变量 S 作为控制输入
         nx = 5  # [x, y, psi, v, delta_prev]
         nu = 2 + self.K  # [a, delta, S_0, S_1, ..., S_{K-1}] - 显式松弛变量
-        np_k = 1 + 3 * self.K  # [v_ref, obs_x, obs_y, obs_r] * K
+        np_k = 1 + 3 * self.K + nu  # [v_ref, obs_x, obs_y, obs_r] * K + u_prev
         nh = 1 + self.K  # delta_rate 约束 + K 个障碍物约束
 
         ocp.dims.N = self.N
@@ -125,6 +125,7 @@ class NMPC_Acados_ExplicitSlack:
         ocp.cost.cost_type_e = 'NONLINEAR_LS'
 
         v_ref_sym = p_sym[0]
+        u_prev_sym = p_sym[1 + 3*self.K : 1 + 3*self.K + nu]  # U_PREV 参数
 
         # 初始阶段 (k=0) - 只有状态项
         ocp.model.cost_y_expr_0 = ca.vertcat(
@@ -136,11 +137,14 @@ class NMPC_Acados_ExplicitSlack:
         ocp.dims.ny_0 = ocp.model.cost_y_expr_0.shape[0]
         ocp.cost.yref_0 = np.zeros(ocp.dims.ny_0)
 
-        # 中间阶段 (k=1...N-1) - 状态 + 控制 + 松弛变量惩罚
-        # 关键：手动添加松弛变量到代价函数
+        # 中间阶段 (k=1...N-1) - 状态 + 控制 + 控制增量 + 松弛变量惩罚
+        # 关键：手动添加松弛变量到代价函数，并添加控制增量惩罚
         slack_terms = []
         for j in range(self.K):
             slack_terms.append(u_sym[2 + j])  # S_j
+
+        # 控制增量：du = u - u_prev（完全模仿 CasADi 版本）
+        du_sym = u_sym - u_prev_sym
 
         ocp.model.cost_y_expr = ca.vertcat(
             x_aug_sym[1],                 # ey
@@ -148,11 +152,13 @@ class NMPC_Acados_ExplicitSlack:
             x_aug_sym[3] - v_ref_sym,     # v_err
             u_sym[0],                     # a
             u_sym[1],                     # delta
+            du_sym[0],                    # da (控制增量 - 加速度)
+            du_sym[1],                    # d_delta (控制增量 - 转向)
             *slack_terms                  # S_0, S_1, ...（显式松弛变量）
         )
 
-        # 权重矩阵：状态权重 + 控制权重 + 松弛变量权重
-        W_weights = [W_EY, W_EPSI, W_V, W_U, W_U] + [RHO_SLACK] * self.K
+        # 权重矩阵：状态权重 + 控制权重 + 控制增量权重 + 松弛变量权重
+        W_weights = [W_EY, W_EPSI, W_V, W_U, W_U, W_DU, W_DU] + [RHO_SLACK] * self.K
         ocp.cost.W = np.diag(W_weights)
         ocp.dims.ny = ocp.model.cost_y_expr.shape[0]
         ocp.cost.yref = np.zeros(ocp.dims.ny)
@@ -197,10 +203,11 @@ class NMPC_Acados_ExplicitSlack:
         h_expr_list.append(h_delta_rate)
 
         # (2) 障碍物约束：g_obs <= S[j]  =>  g_obs - S[j] <= 0
+        obs_param_offset = 1  # v_ref 占 1 个位置
         for j in range(self.K):
-            obs_x_sym = p_sym[1 + j*3 + 0]
-            obs_y_sym = p_sym[1 + j*3 + 1]
-            obs_r_sym = p_sym[1 + j*3 + 2]
+            obs_x_sym = p_sym[obs_param_offset + j*3 + 0]
+            obs_y_sym = p_sym[obs_param_offset + j*3 + 1]
+            obs_r_sym = p_sym[obs_param_offset + j*3 + 2]
             dx = x_aug_sym[0] - obs_x_sym
             dy = x_aug_sym[1] - obs_y_sym
             rj = obs_r_sym
@@ -235,10 +242,11 @@ class NMPC_Acados_ExplicitSlack:
         print("\n--- Acados EXPLICIT SLACK Sanity Check ---")
         print(f"K = {self.K}")
         print(f"nu (control dim) = {nu} ([a, delta] + {self.K} slack vars)")
+        print(f"np (parameter dim) = {np_k} (v_ref + 3*K obs + {nu} u_prev)")
         print(f"Declared nh_0 (dims): {ocp.dims.nh_0}")
         print(f"Expression h (model) len: {ocp.model.con_h_expr.shape[0]}")
-        print(f"Cost ny (middle stage): {ocp.dims.ny}")
-        print(f"RHO_SLACK = {RHO_SLACK}")
+        print(f"Cost ny (middle stage): {ocp.dims.ny} (3 state + 2 ctrl + 2 du + {self.K} slack)")
+        print(f"RHO_SLACK = {RHO_SLACK}, W_DU = {W_DU}")
         print("------------------------------------------\n")
 
         # --- 7. 创建求解器 ---
@@ -248,18 +256,25 @@ class NMPC_Acados_ExplicitSlack:
         print("Acados solver build complete.")
         return solver
 
-    def solve(self, x0_aug, v_ref, obs_xy_2d, obs_r_2d, X_guess, U_guess):
+    def solve(self, x0_aug, v_ref, obs_xy_2d, obs_r_2d, X_guess, U_guess, U_prev):
 
         # 1. 设置初始状态
         self.solver.set(0, 'x', x0_aug)
 
-        # 2. 设置时变参数 p
+        # 2. 设置时变参数 p（包含 U_PREV）
         p_matrix = np.zeros((self.N, self.np))
         p_matrix[:, 0] = v_ref
+
+        # 障碍物参数
         for j in range(self.K):
             p_matrix[:, 1 + j*3 + 0] = obs_xy_2d[j*2, :]     # obs_x
             p_matrix[:, 1 + j*3 + 1] = obs_xy_2d[j*2 + 1, :] # obs_y
             p_matrix[:, 1 + j*3 + 2] = obs_r_2d[j, :]        # obs_r
+
+        # U_PREV 参数（关键：使传入的 U_prev 成为参数）
+        u_prev_offset = 1 + 3 * self.K
+        for k in range(self.N):
+            p_matrix[k, u_prev_offset:u_prev_offset + self.nu] = U_prev[:, k]
 
         for k in range(self.N):
             self.solver.set(k, 'p', p_matrix[k, :])
@@ -458,7 +473,7 @@ def run_episodes(num_eps=3, steps_per_ep=80, out_path=OUT_PATH):
 
             # --- solve ---
             t_start_solve = time.time()
-            sol = mpc.solve(st, v_ref, obs_mat, obs_r_mat, X_prev, U_prev)
+            sol = mpc.solve(st, v_ref, obs_mat, obs_r_mat, X_prev, U_prev, U_prev)
             t_end_solve = time.time()
             solve_times.append(t_end_solve - t_start_solve)
 
